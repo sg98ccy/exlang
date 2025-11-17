@@ -1,0 +1,50 @@
+# ----------------------------------------------------------------------
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ----------------------------------------------------------------------
+# Virtual environments
+venv/
+.venv/
+env/
+
+# ----------------------------------------------------------------------
+# Distribution and packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ----------------------------------------------------------------------
+# Jupyter and notebook artefacts
+.ipynb_checkpoints/
+
+# ----------------------------------------------------------------------
+# Local environment files
+*.env
+*.env.local
+*.env.development
+*.env.production
+
+# ----------------------------------------------------------------------
+# IDE and editor folders
+.vscode/
+.idea/
+*.swp
+
+# ----------------------------------------------------------------------
+# Logs
+*.log
+
+# ----------------------------------------------------------------------
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# ----------------------------------------------------------------------
+# Project specific: Large generated Excel files
+# Keep this explicit so you do not accidentally ignore other folders
+src/notebook/output/
