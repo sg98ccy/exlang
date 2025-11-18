@@ -279,6 +279,80 @@ Equivalent using `<xrange>` (single line):
 
 This achieves approximately 50× token reduction for sparse/irregular layouts.
 
+### 5.7 `<xrepeat times="..." r="..." c="..." direction="...">`
+
+Generate repetitions of template content with iteration variables.  
+Attributes:
+
+- `times`: number of repetitions (required, must be ≥ 1)  
+- `r`: starting row (optional, defaults to `"1"`)  
+- `c`: starting column (optional, defaults to `"A"`)  
+- `direction`: iteration direction (optional, defaults to `"down"`)  
+  - `"down"`: each iteration moves to the next row  
+  - `"right"`: each iteration moves to the next column  
+
+**Template variables:**
+
+- `{{i}}`: 1-based iteration index (1, 2, 3, ...)  
+- `{{i0}}`: 0-based iteration index (0, 1, 2, ...)  
+
+**Content constraints:**
+
+- `<xrepeat>` can only contain `<xv>` elements  
+- Nested `<xrepeat>` elements are not allowed  
+- Each `<xv>` defines a cell value in the template  
+
+**Example (direction=down, default):**
+
+```xml
+<xrepeat times="12" r="2" c="A">
+  <xv>Month {{i}}</xv>
+  <xv>0</xv>
+</xrepeat>
+```
+
+This generates:
+- A2="Month 1", B2=0  
+- A3="Month 2", B3=0  
+- A4="Month 3", B4=0  
+- ... through A13="Month 12", B13=0  
+
+**Example (direction=right):**
+
+```xml
+<xrepeat times="4" r="1" c="B" direction="right">
+  <xv>Q{{i}}</xv>
+  <xv>0</xv>
+</xrepeat>
+```
+
+This generates:
+- B1="Q1", B2=0  
+- C1="Q2", C2=0  
+- D1="Q3", D2=0  
+- E1="Q4", E2=0  
+
+**Compression benefits:**
+
+Traditional approach using `<xrow>` for 12 months:
+```xml
+<xrow r="2" c="A"><xv>Month 1</xv><xv>0</xv></xrow>
+<xrow r="3" c="A"><xv>Month 2</xv><xv>0</xv></xrow>
+<xrow r="4" c="A"><xv>Month 3</xv><xv>0</xv></xrow>
+<!-- ... 9 more lines ... -->
+<xrow r="13" c="A"><xv>Month 12</xv><xv>0</xv></xrow>
+```
+
+Equivalent using `<xrepeat>` (single element):
+```xml
+<xrepeat times="12" r="2" c="A">
+  <xv>Month {{i}}</xv>
+  <xv>0</xv>
+</xrepeat>
+```
+
+This achieves approximately **12× token reduction** for templated table structures, demonstrating Output Representation Optimisation (ORO) for pattern-based data. The compression factor scales linearly with the repetition count: `times="100"` achieves 100× compression.
+
 ---
 
 ## 6. Installation

@@ -138,3 +138,38 @@ def parse_range(from_addr: str, to_addr: str) -> tuple[int, int, int, int]:
         )
     
     return (from_row, from_col, to_row, to_col)
+
+
+def substitute_template_vars(text: str, iteration_index: int) -> str:
+    """
+    Substitute template variables in text with actual values.
+    
+    Supported variables:
+        {{i}}  - 1-based iteration index (1, 2, 3, ...)
+        {{i0}} - 0-based iteration index (0, 1, 2, ...)
+    
+    Args:
+        text: Text containing template variables
+        iteration_index: Current iteration (1-based)
+    
+    Returns:
+        Text with variables substituted
+    
+    Examples:
+        >>> substitute_template_vars("Month {{i}}", 1)
+        'Month 1'
+        >>> substitute_template_vars("Index {{i0}}", 1)
+        'Index 0'
+        >>> substitute_template_vars("Row {{i}} Col {{i0}}", 3)
+        'Row 3 Col 2'
+    """
+    if text is None:
+        return None
+    
+    text = str(text)
+    # Substitute {{i}} with 1-based index
+    text = text.replace("{{i}}", str(iteration_index))
+    # Substitute {{i0}} with 0-based index
+    text = text.replace("{{i0}}", str(iteration_index - 1))
+    
+    return text

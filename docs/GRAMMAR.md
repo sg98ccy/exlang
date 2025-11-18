@@ -216,7 +216,29 @@ FillValue     ::= 'fill="' TextContent '"'
 (* Type hint applies to fill value inference *)
 ```
 
-### 4.6 Terminal Definitions
+### 4.6 Repetition Patterns
+
+```ebnf
+(* ============================================================ *)
+(* Repetition/pattern generation for templated structures       *)
+(* ============================================================ *)
+
+Repeat        ::= '<xrepeat' RepeatTimes [ RowIndex ] [ ColumnStart ] [ Direction ] '>' 
+                  Value+ 
+                  '</xrepeat>'
+
+RepeatTimes   ::= 'times="' PositiveInt '"'
+Direction     ::= 'direction="' DirectionValue '"'
+DirectionValue ::= 'down' | 'right'
+
+(* Repeats template content times iterations *)
+(* Default direction: down (each iteration increments row) *)
+(* Direction right: each iteration increments column *)
+(* Template variables: {{i}} (1-based), {{i0}} (0-based) *)
+(* Can only contain <xv> elements *)
+```
+
+### 4.7 Terminal Definitions
 
 ```ebnf
 (* ============================================================ *)
@@ -428,33 +450,82 @@ EXLang performs **no implicit type coercion** during compilation. Type inference
 
 **Rule 6.5.8**: Single-cell ranges (`from = to`) are valid.
 
-###  6.6 Overlap Resolution
+### 6.6 Repetition Semantics
 
-**Rule 6.6.1**: If multiple elements write to the same cell, **last write wins**.
+**Rule 6.6.1**: `<xrepeat>` generates multiple iterations of template content.
 
-**Rule 6.6.2**: Processing order within a sheet:
+**Rule 6.6.2**: The `times` attribute specifies the number of iterations (must be ≥ 1).
+
+**Rule 6.6.3**: Template variables are substituted during compilation:
+- `{{i}}` — 1-based iteration index (1, 2, 3, ...)
+- `{{i0}}` — 0-based iteration index (0, 1, 2, ...)
+
+**Rule 6.6.4**: The `direction` attribute controls iteration placement:
+- `"down"` (default): Each iteration moves to the next row
+- `"right"`: Each iteration moves to the next column
+
+**Rule 6.6.5**: Starting position defaults to `r="1"` and `c="A"`.
+
+**Rule 6.6.6**: `<xrepeat>` can only contain `<xv>` elements (no nesting of xrepeat, xrow, xcell, or xrange).
+
+**Example (direction=down):**
+```xml
+<xrepeat times="3" r="2" c="A">
+  <xv>Month {{i}}</xv>
+  <xv>0</xv>
+</xrepeat>
+<!-- Generates:
+     A2="Month 1", B2=0
+     A3="Month 2", B3=0
+     A4="Month 3", B4=0
+-->
+```
+
+**Example (direction=right):**
+```xml
+<xrepeat times="4" r="1" c="B" direction="right">
+  <xv>Q{{i}}</xv>
+  <xv>0</xv>
+</xrepeat>
+<!-- Generates:
+     B1="Q1", B2=0
+     C1="Q2", C2=0
+     D1="Q3", D2=0
+     E1="Q4", E2=0
+-->
+```
+
+###  6.7 Overlap Resolution
+
+**Rule 6.7.1**: If multiple elements write to the same cell, **last write wins**.
+
+**Rule 6.7.2**: Processing order within a sheet:
 1. All `<xrow>` elements (in document order)
 2. All `<xrange>` elements (in document order)
-3. All `<xcell>` elements (in document order)
+3. All `<xrepeat>` elements (in document order)
+4. All `<xcell>` elements (in document order)
 
 **Example:**
 ```xml
 <xsheet name="Test">
   <xrow r="1"><xv>Original</xv></xrow>      <!-- A1 = "Original" -->
   <xrange from="A1" to="A3" fill="Range"/>  <!-- A1 = "Range" (overwrites) -->
+  <xrepeat times="2" r="1" c="A"><xv>Repeat {{i}}</xv></xrepeat>  <!-- A1 = "Repeat 1" (overwrites) -->
   <xcell addr="A1" v="Override"/>           <!-- A1 = "Override" (final) -->
 </xsheet>
 ```
 
-**Rule 6.6.3**: `<xrange>` can overwrite row-based placement.
+**Rule 6.7.3**: `<xrepeat>` can overwrite row-based placement.
 
-**Rule 6.6.4**: `<xcell>` can overwrite range fills.
+**Rule 6.7.4**: `<xrange>` can overwrite repetitions.
 
-### 6.7 Formula Semantics
+**Rule 6.7.5**: `<xcell>` can overwrite all previous placements.
 
-**Rule 6.7.1**: Values starting with `=` are treated as Excel formulas.
+### 6.8 Formula Semantics
 
-**Rule 6.7.2**: Formulas are **stored**, not evaluated during compilation.
+**Rule 6.8.1**: Values starting with `=` are treated as Excel formulas.
+
+**Rule 6.8.2**: Formulas are **stored**, not evaluated during compilation.
 
 **Rule 6.7.3**: Formula syntax must be valid Excel formula notation.
 
@@ -498,12 +569,20 @@ EXLang performs **no implicit type coercion** during compilation. Type inference
 **V18**: Invalid cell addresses in `from` or `to` are rejected  
 **V19**: Range addresses must follow A1 notation strictly  
 
-### 7.5 XML Well-Formedness
+### 7.5 Repetition Validation
 
-**V20**: Document must be valid XML 1.0  
-**V21**: All elements must be properly nested  
-**V22**: All tags must be closed  
-**V23**: Attribute values must be quoted  
+**V20**: `<xrepeat>` must have `times` attribute  
+**V21**: `times` must be positive integer (≥ 1)  
+**V22**: `direction` (if present) must be either `"down"` or `"right"`  
+**V23**: `<xrepeat>` can only contain `<xv>` elements  
+**V24**: Nested `<xrepeat>` elements are not allowed  
+
+### 7.6 XML Well-Formedness
+
+**V25**: Document must be valid XML 1.0  
+**V26**: All elements must be properly nested  
+**V27**: All tags must be closed  
+**V28**: Attribute values must be quoted  
 
 ---
 

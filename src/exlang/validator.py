@@ -5,6 +5,7 @@
 from xml.etree import ElementTree as ET
 
 ALLOWED_TYPES = {"number", "string", "date", "bool"}
+ALLOWED_DIRECTIONS = {"down", "right"}
 
 
 def validate_xlang_minimal(root: ET.Element) -> list[str]:
@@ -16,9 +17,11 @@ def validate_xlang_minimal(root: ET.Element) -> list[str]:
       - xsheet name is optional (auto-generated as Sheet1, Sheet2, etc. if omitted)
       - Auto-generated names must not conflict with explicitly named sheets
       - xrow has r
+      - xrepeat has times
       - xcell has addr and v
       - xrange has from, to, and fill
       - Optional t attributes use only allowed type names
+      - Optional direction attribute uses only allowed directions
     """
     errors: list[str] = []
 
@@ -51,6 +54,39 @@ def validate_xlang_minimal(root: ET.Element) -> list[str]:
         for xrow in sheet.findall("xrow"):
             if "r" not in xrow.attrib:
                 errors.append("xrow missing required attribute 'r'")
+
+        for xrepeat in sheet.findall("xrepeat"):
+            if "times" not in xrepeat.attrib:
+                errors.append("xrepeat missing required attribute 'times'")
+            
+            # Validate times is a positive integer
+            times_str = xrepeat.attrib.get("times", "")
+            if times_str:
+                try:
+                    times_val = int(times_str)
+                    if times_val < 1:
+                        errors.append(f"xrepeat 'times' must be >= 1, got {times_val}")
+                except ValueError:
+                    errors.append(f"xrepeat 'times' must be an integer, got '{times_str}'")
+            
+            # Validate direction if present
+            direction = xrepeat.attrib.get("direction")
+            if direction is not None and direction not in ALLOWED_DIRECTIONS:
+                errors.append(
+                    f"xrepeat has invalid direction='{direction}'. "
+                    f"Must be one of: {', '.join(ALLOWED_DIRECTIONS)}"
+                )
+            
+            # Check for nested xrepeat (not allowed)
+            if xrepeat.findall(".//xrepeat"):
+                errors.append("Nested xrepeat is not allowed")
+            
+            # Validate content contains only xv tags
+            for child in xrepeat:
+                if child.tag != "xv":
+                    errors.append(
+                        f"xrepeat can only contain <xv> tags, found <{child.tag}>"
+                    )
 
         for xcell in sheet.findall("xcell"):
             if "addr" not in xcell.attrib:

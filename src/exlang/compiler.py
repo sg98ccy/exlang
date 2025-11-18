@@ -8,7 +8,7 @@ from xml.etree import ElementTree as ET
 from openpyxl import Workbook
 
 from .validator import validate_xlang_minimal
-from .helpers import col_letter_to_index, infer_value, parse_range
+from .helpers import col_letter_to_index, infer_value, parse_range, substitute_template_vars
 
 
 def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
@@ -20,6 +20,7 @@ def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
       - xsheet
       - xrow
       - xv
+      - xrepeat
       - xcell
       - xrange
     """
@@ -42,7 +43,7 @@ def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
             auto_counter += 1
         ws = wb.create_sheet(title=sheet_name)
 
-        # Process in order: xrow → xrange → xcell (last write wins)
+        # Process in order: xrow → xrange → xrepeat → xcell (last write wins)
         for xrow in xsheet.findall("xrow"):
             row_idx = int(xrow.attrib["r"])
             start_col_letter = xrow.attrib.get("c", "A")
@@ -69,6 +70,38 @@ def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
             for row in range(from_row, to_row + 1):
                 for col in range(from_col, to_col + 1):
                     ws.cell(row=row, column=col, value=inferred_value)
+
+        for xrepeat in xsheet.findall("xrepeat"):
+            times = int(xrepeat.attrib["times"])
+            direction = xrepeat.attrib.get("direction", "down")
+            start_row = int(xrepeat.attrib.get("r", "1"))
+            start_col_letter = xrepeat.attrib.get("c", "A")
+            start_col_idx = col_letter_to_index(start_col_letter)
+            
+            # Extract template xv elements
+            template_xvs = list(xrepeat.findall("xv"))
+            
+            for i in range(1, times + 1):
+                # Calculate current position based on direction
+                if direction == "down":
+                    current_row = start_row + (i - 1)
+                    current_col = start_col_idx
+                else:  # direction == "right"
+                    current_row = start_row
+                    current_col = start_col_idx + (i - 1)
+                
+                # Process each xv in the template
+                for offset, xv in enumerate(template_xvs):
+                    raw_value = xv.text or ""
+                    # Substitute template variables
+                    substituted_value = substitute_template_vars(raw_value, i)
+                    value = infer_value(substituted_value, None)
+                    
+                    # Calculate final cell position
+                    if direction == "down":
+                        ws.cell(row=current_row, column=current_col + offset, value=value)
+                    else:  # direction == "right"
+                        ws.cell(row=current_row + offset, column=current_col, value=value)
 
         for xcell in xsheet.findall("xcell"):
             addr = xcell.attrib["addr"]
