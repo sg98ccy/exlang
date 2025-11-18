@@ -33,8 +33,13 @@ def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
     wb = Workbook()
     wb.remove(wb.active)
 
+    # Auto-generate sheet names for unnamed sheets
+    auto_counter = 1
     for xsheet in root.findall("xsheet"):
-        sheet_name = xsheet.attrib["name"]
+        sheet_name = xsheet.attrib.get("name")
+        if not sheet_name:
+            sheet_name = f"Sheet{auto_counter}"
+            auto_counter += 1
         ws = wb.create_sheet(title=sheet_name)
 
         # Process in order: xrow → xrange → xcell (last write wins)

@@ -35,14 +35,11 @@ def sample_xlang_content():
 
 @pytest.fixture
 def invalid_xlang_content():
-    """Provide invalid EXLANG content for testing."""
+    """Provide invalid EXLANG content for testing (collision scenario)."""
     return """<?xml version="1.0" encoding="UTF-8"?>
 <xworkbook>
-  <xsheet>
-    <xrow r="1" c="A">
-      <xv>Data</xv>
-    </xrow>
-  </xsheet>
+  <xsheet></xsheet>
+  <xsheet name="Sheet1"></xsheet>
 </xworkbook>"""
 
 

@@ -95,14 +95,6 @@ class TestInvalidDocuments:
         assert "Root tag must be 'xworkbook'" in errors[0]
         assert "found 'workbook'" in errors[0]
 
-    def test_xsheet_missing_name(self):
-        """xsheet must have name attribute."""
-        xml = "<xworkbook><xsheet></xsheet></xworkbook>"
-        root = ET.fromstring(xml)
-        errors = validate_xlang_minimal(root)
-        assert len(errors) == 1
-        assert "xsheet missing required attribute 'name'" in errors[0]
-
     def test_xrow_missing_r(self):
         """xrow must have r attribute."""
         xml = """
@@ -170,5 +162,5 @@ class TestInvalidDocuments:
         """
         root = ET.fromstring(xml)
         errors = validate_xlang_minimal(root)
-        # Should have: missing sheet name, missing xrow r, missing xcell addr
-        assert len(errors) >= 3
+        # Should have: missing xrow r, missing xcell addr
+        assert len(errors) >= 2

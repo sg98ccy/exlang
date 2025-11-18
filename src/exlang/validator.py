@@ -13,7 +13,8 @@ def validate_xlang_minimal(root: ET.Element) -> list[str]:
 
     Checks:
       - Root tag is xworkbook
-      - xsheet has name
+      - xsheet name is optional (auto-generated as Sheet1, Sheet2, etc. if omitted)
+      - Auto-generated names must not conflict with explicitly named sheets
       - xrow has r
       - xcell has addr and v
       - xrange has from, to, and fill
@@ -25,9 +26,27 @@ def validate_xlang_minimal(root: ET.Element) -> list[str]:
         errors.append(f"Root tag must be 'xworkbook' but found '{root.tag}'")
         return errors
 
+    # Check for collisions between auto-generated and explicit sheet names
+    explicit_names = set()
+    auto_generated_count = 0
+    
     for sheet in root.findall("xsheet"):
-        if "name" not in sheet.attrib:
-            errors.append("xsheet missing required attribute 'name'")
+        name = sheet.attrib.get("name")
+        if name:
+            explicit_names.add(name)
+        else:
+            auto_generated_count += 1
+    
+    # Check if auto-generated names would conflict with explicit names
+    for i in range(1, auto_generated_count + 1):
+        auto_name = f"Sheet{i}"
+        if auto_name in explicit_names:
+            errors.append(
+                f"Auto-generated sheet name '{auto_name}' conflicts with explicitly named sheet. "
+                f"Either name all sheets or ensure explicit names don't use 'Sheet1', 'Sheet2', etc."
+            )
+
+    for sheet in root.findall("xsheet"):
 
         for xrow in sheet.findall("xrow"):
             if "r" not in xrow.attrib:

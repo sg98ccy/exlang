@@ -154,13 +154,14 @@ Workbook      ::= '<xworkbook>' Sheet+ '</xworkbook>'
 (* Worksheet definition                                         *)
 (* ============================================================ *)
 
-Sheet         ::= '<xsheet' SheetName '>' SheetContent* '</xsheet>'
+Sheet         ::= '<xsheet' [ SheetName ] '>' SheetContent* '</xsheet>'
 
 SheetName     ::= 'name="' Identifier '"'
 
 SheetContent  ::= Row | Cell | Range
 
 (* Sheet may be empty (no content) *)
+(* Sheet name is optional; if omitted, auto-generated as Sheet1, Sheet2, etc. *)
 ```
 
 ### 4.3 Row-Based Placement
@@ -361,9 +362,15 @@ EXLang performs **no implicit type coercion** during compilation. Type inference
 
 **Rule 6.2.2**: The `name` attribute specifies the worksheet name visible in Excel.
 
-**Rule 6.2.3**: Sheet names should be unique. Duplicate names may cause Excel warnings.
+**Rule 6.2.3**: If `name` attribute is omitted, sheets are auto-named sequentially as "Sheet1", "Sheet2", "Sheet3", etc.
 
-**Rule 6.2.4**: Empty sheets (no content) are valid and create blank worksheets.
+**Rule 6.2.4**: Auto-generated names must not conflict with explicitly named sheets. If a conflict exists (e.g., an unnamed sheet would generate "Sheet1" but an explicit `name="Sheet1"` exists), compilation fails with a validation error.
+
+**Rule 6.2.5**: Auto-numbering is independent of explicit names. Unnamed sheets use consecutive numbers starting from 1, regardless of explicit sheet names.
+
+**Rule 6.2.6**: Sheet names should be unique. Duplicate names may cause Excel warnings.
+
+**Rule 6.2.7**: Empty sheets (no content) are valid and create blank worksheets.
 
 ### 6.3 Row Placement Semantics
 
@@ -464,7 +471,7 @@ EXLang performs **no implicit type coercion** during compilation. Type inference
 
 **V1**: Root element must be `<xworkbook>`  
 **V2**: `<xworkbook>` must contain at least one `<xsheet>`  
-**V3**: `<xsheet>` must have `name` attribute  
+**V3**: `<xsheet>` may optionally provide a `name` attribute. If omitted, names are auto-generated as "Sheet1", "Sheet2", etc. Auto-generated names must not conflict with explicitly named sheets.  
 **V4**: `<xrow>` must have `r` attribute  
 **V5**: `<xcell>` must have `addr` and `v` attributes  
 **V6**: `<xrange>` must have `from`, `to`, and `fill` attributes  
@@ -491,12 +498,12 @@ EXLang performs **no implicit type coercion** during compilation. Type inference
 **V18**: Invalid cell addresses in `from` or `to` are rejected  
 **V19**: Range addresses must follow A1 notation strictly  
 
-### 7.4 XML Well-Formedness
+### 7.5 XML Well-Formedness
 
-**V14**: Document must be valid XML 1.0  
-**V15**: All elements must be properly nested  
-**V16**: All tags must be closed  
-**V17**: Attribute values must be quoted  
+**V20**: Document must be valid XML 1.0  
+**V21**: All elements must be properly nested  
+**V22**: All tags must be closed  
+**V23**: Attribute values must be quoted  
 
 ---
 
@@ -764,9 +771,11 @@ XMLChar       ::= <any valid XML character>
 
 ```xml
 <xworkbook>
-  <xsheet name="Sheet1"></xsheet>
+  <xsheet></xsheet>
 </xworkbook>
 ```
+
+**Note**: Sheet name is optional. If omitted, auto-generated as "Sheet1".
 
 ### B.2 Complete Example
 

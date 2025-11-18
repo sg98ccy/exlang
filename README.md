@@ -154,15 +154,36 @@ Example:
 ### 5.2 `<xsheet name="...">`
 
 Defines a sheet.  
-The `name` attribute is required and should be unique across the workbook.
+The `name` attribute is optional. If omitted, sheets are auto-named as "Sheet1", "Sheet2", "Sheet3", etc.  
+Explicit names should be unique across the workbook.
 
-Example:
+Example with explicit name:
 
 ```xml
 <xsheet name="KPI">
   ...
 </xsheet>
 ```
+
+Example with auto-naming:
+
+```xml
+<xsheet>
+  <!-- Auto-named as "Sheet1" -->
+  ...
+</xsheet>
+<xsheet>
+  <!-- Auto-named as "Sheet2" -->
+  ...
+</xsheet>
+```
+
+**Auto-naming rules:**
+
+- Unnamed sheets receive sequential names starting from "Sheet1"
+- Auto-generated names must not conflict with explicitly named sheets
+- If a conflict exists (e.g., unnamed sheet would be "Sheet1" but an explicit `name="Sheet1"` exists), compilation fails with a validation error
+- Auto-numbering is independent of explicit names
 
 ### 5.3 `<xrow r="..." c="...">`
 

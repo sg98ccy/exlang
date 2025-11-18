@@ -23,9 +23,12 @@ class TestValidationErrors:
         with pytest.raises(ValueError, match="Invalid XLang"):
             compile_xlang_to_xlsx(xlang, output)
 
-    def test_missing_sheet_name_prevents_compilation(self, tmp_path):
-        """Missing sheet name raises ValueError."""
-        xlang = "<xworkbook><xsheet></xsheet></xworkbook>"
+    def test_collision_prevents_compilation(self, tmp_path):
+        """Sheet name collision raises ValueError."""
+        xlang = """<xworkbook>
+          <xsheet></xsheet>
+          <xsheet name="Sheet1"></xsheet>
+        </xworkbook>"""
         output = tmp_path / "invalid.xlsx"
 
         with pytest.raises(ValueError, match="Invalid XLang"):
