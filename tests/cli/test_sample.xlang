@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xworkbook>
-  <xsheet name="Sales">
+  <xsheet>
+    <!-- Auto-named as "Sheet1" -->
     <xrow r="1" c="A">
       <xv>Product</xv>
       <xv>Price</xv>
@@ -13,5 +14,15 @@
     </xrow>
     <xcell addr="D1" v="Total"/>
     <xcell addr="D2" v="=B2*C2"/>
+  </xsheet>
+  <xsheet name="Summary">
+    <xrange from="A1" to="A5" fill="0" t="number"/>
+    <xcell addr="B1" v="Summary Data"/>
+  </xsheet>
+  <xsheet>
+    <!-- Auto-named as "Sheet2" -->
+    <xrow r="1" c="A">
+      <xv>Additional Data</xv>
+    </xrow>
   </xsheet>
 </xworkbook>

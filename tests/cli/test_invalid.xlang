@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <xworkbook>
   <xsheet>
+    <!-- This would auto-generate "Sheet1" -->
     <xrow r="1" c="A">
-      <xv>Missing name attribute</xv>
+      <xv>Data</xv>
+    </xrow>
+  </xsheet>
+  <xsheet name="Sheet1">
+    <!-- Collision: explicit "Sheet1" conflicts with auto-generated name -->
+    <xrow r="1" c="A">
+      <xv>More Data</xv>
     </xrow>
   </xsheet>
 </xworkbook>
