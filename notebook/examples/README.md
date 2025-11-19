@@ -2,6 +2,8 @@
 
 Single notebook with 5 increasingly complex real-world scenarios demonstrating all 9 EXLang tags.
 
+**Note**: Formulas with XML special characters (`<`, `>`, `"`, `&`) are automatically escaped by the compiler - no manual encoding needed.
+
 ## Getting Started
 
 Install the EXLang package first:

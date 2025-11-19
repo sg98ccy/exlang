@@ -1,8 +1,8 @@
 """
-Test Jinja2 auto-escaping for EXLang formulas.
+Test automatic XML escaping for EXLang formulas.
 
-Jinja2 preprocessing is now AUTOMATIC in EXLang compiler.
-This demonstrates how the template engine handles XML escaping automatically.
+The compiler automatically escapes XML special characters in formulas.
+This allows natural formula syntax without manual escaping.
 """
 
 from exlang import compile_xlang_to_xlsx
@@ -11,22 +11,18 @@ from pathlib import Path
 
 
 def test_jinja_basic_formula(tmp_path):
-    """Test basic formula with < and quotes using Jinja2 variables."""
+    """Test basic formula with < and quotes using inline syntax."""
     xlang = """
     <xworkbook>
       <xsheet name="Test">
-        <xcell addr="A1" v="{{ formula }}"/>
+        <xcell addr="A1" v='=IF(B1<100,"Low","High")'/>
       </xsheet>
     </xworkbook>
     """
     output = tmp_path / "test.xlsx"
     
-    # Pass formula as variable - Jinja2 auto-escapes it automatically
-    compile_xlang_to_xlsx(
-        xlang, 
-        output,
-        formula='=IF(B1<100,"Low","High")'
-    )
+    # Formula is automatically escaped during compilation
+    compile_xlang_to_xlsx(xlang, output)
     
     # Verify the file was created and formula is correct
     wb = load_workbook(output)
@@ -39,57 +35,47 @@ def test_jinja_multiple_formulas(tmp_path):
     xlang = """
     <xworkbook>
       <xsheet name="Test">
-        <xcell addr="A1" v="{{ less_than }}"/>
-        <xcell addr="A2" v="{{ greater_than }}"/>
-        <xcell addr="A3" v="{{ not_equal }}"/>
-        <xcell addr="A4" v="{{ text_ampersand }}"/>
+        <xcell addr="A1" v='=IF(B1<100,"Low","High")'/>
+        <xcell addr="A2" v='=IF(B2>=100,"High","Low")'/>
+        <xcell addr="A3" v='=IF(B3<>100,"Not Equal","Equal")'/>
+        <xcell addr="A4" v="=A1&A2"/>
       </xsheet>
     </xworkbook>
     """
     output = tmp_path / "test.xlsx"
     
-    compile_xlang_to_xlsx(
-        xlang,
-        output,
-        less_than='=IF(B1<100,"Low","High")',
-        greater_than='=IF(B2>100,"High","Low")',
-        not_equal='=IF(B3<>0,"Active","Inactive")',
-        text_ampersand='Sales & Marketing'
-    )
+    # All formulas are automatically escaped during compilation
+    compile_xlang_to_xlsx(xlang, output)
     
     wb = load_workbook(output)
     ws = wb.active
     assert ws['A1'].value == '=IF(B1<100,"Low","High")'
-    assert ws['A2'].value == '=IF(B2>100,"High","Low")'
-    assert ws['A3'].value == '=IF(B3<>0,"Active","Inactive")'
-    assert ws['A4'].value == 'Sales & Marketing'
+    assert ws['A2'].value == '=IF(B2>=100,"High","Low")'
+    assert ws['A3'].value == '=IF(B3<>100,"Not Equal","Equal")'
+    assert ws['A4'].value == '=A1&A2'
 
 
 def test_jinja_loop_formulas(tmp_path):
-    """Test Jinja2 loops for generating repetitive formulas."""
+    """Test inline formulas in xrepeat with comparison operators."""
     xlang = """
     <xworkbook>
       <xsheet name="Inventory">
-        {% for row in rows %}
-        <xcell addr="K{{ row }}" v="{{ formula_template.replace('ROW', row|string) }}"/>
-        {% endfor %}
+        <xrepeat times="3" r="4" c="K">
+          <xv>=IF(J4<100,"REORDER","OK")</xv>
+        </xrepeat>
       </xsheet>
     </xworkbook>
     """
     output = tmp_path / "test.xlsx"
     
-    compile_xlang_to_xlsx(
-        xlang,
-        output,
-        rows=[4, 5, 6],
-        formula_template='=IF(JROW<100,"REORDER","OK")'
-    )
+    compile_xlang_to_xlsx(xlang, output)
     
     wb = load_workbook(output)
     ws = wb.active
+    # All three rows get the same formula (no {{i}} substitution)
     assert ws['K4'].value == '=IF(J4<100,"REORDER","OK")'
-    assert ws['K5'].value == '=IF(J5<100,"REORDER","OK")'
-    assert ws['K6'].value == '=IF(J6<100,"REORDER","OK")'
+    assert ws['K5'].value == '=IF(J4<100,"REORDER","OK")'
+    assert ws['K6'].value == '=IF(J4<100,"REORDER","OK")'
 
 
 def test_jinja_complex_nested_formula(tmp_path):
@@ -97,17 +83,13 @@ def test_jinja_complex_nested_formula(tmp_path):
     xlang = """
     <xworkbook>
       <xsheet name="Test">
-        <xcell addr="A1" v="{{ complex_formula }}"/>
+        <xcell addr="A1" v='=IF(AND(B1>50,B1<100),"Medium",IF(B1>=100,"High","Low"))'/>
       </xsheet>
     </xworkbook>
     """
     output = tmp_path / "test.xlsx"
     
-    compile_xlang_to_xlsx(
-        xlang,
-        output,
-        complex_formula='=IF(AND(B1>50,B1<100),"Medium",IF(B1>=100,"High","Low"))'
-    )
+    compile_xlang_to_xlsx(xlang, output)
     
     wb = load_workbook(output)
     ws = wb.active

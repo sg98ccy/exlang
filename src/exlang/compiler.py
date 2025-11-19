@@ -4,7 +4,6 @@
 
 from pathlib import Path
 from xml.etree import ElementTree as ET
-from jinja2 import Environment
 
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -13,34 +12,105 @@ from openpyxl.utils import range_boundaries
 from .validator import validate_xlang_minimal
 from .helpers import col_letter_to_index, infer_value, parse_range, parse_merge_range, substitute_template_vars
 
+import re
 
-def preprocess_jinja_xlang(xlang_text: str) -> str:
+
+def _escape_xml_chars(value: str) -> str:
+    """Escape XML special characters in a string."""
+    escaped = value.replace('&', '&amp;')   # Must be first!
+    escaped = escaped.replace('<', '&lt;')
+    escaped = escaped.replace('>', '&gt;')
+    escaped = escaped.replace('"', '&quot;')
+    escaped = escaped.replace("'", '&apos;')
+    return escaped
+
+
+def _contains_xml_entities(text: str) -> bool:
+    """Check if text already contains XML entities (manual escaping)."""
+    return '&lt;' in text or '&gt;' in text or '&quot;' in text or '&apos;' in text or '&amp;' in text
+
+
+def _manual_escape(xlang_text: str) -> str:
     """
-    Preprocess EXLang templates using Jinja2 with XML autoescape.
-    
-    This allows natural formula syntax:
-        <xcell addr="A1" v="{{ formula }}"/>
-    
-    Where formula = '=IF(B1<100,"Low","High")' gets auto-escaped to:
-        <xcell addr="A1" v="=IF(B1&lt;100,&quot;Low&quot;,&quot;High&quot;)"/>
-    
-    Uses Jinja2's industry-standard XML escaping mechanism.
+    Scan and escape formulas in both v attributes and <xv> text content.
+    This handles:
+    - v="=formula" and v='=formula' attributes
+    - <xv>=formula</xv> text content
+    Skips escaping if content already contains XML entities.
     """
-    # Create Jinja2 environment with XML autoescape enabled
-    env = Environment(autoescape=True)
+    result = []
+    i = 0
     
-    # Render the template (this handles XML escaping automatically)
-    template = env.from_string(xlang_text)
+    while i < len(xlang_text):
+        # Handle v=" or v=' attributes
+        if xlang_text[i:i+2] == 'v=' and i+2 < len(xlang_text):
+            quote_char = xlang_text[i+2]
+            if quote_char in ('"', "'"):
+                result.append(f'v={quote_char}')
+                i += 3
+                
+                value_chars = []
+                while i < len(xlang_text) and xlang_text[i] != quote_char:
+                    value_chars.append(xlang_text[i])
+                    i += 1
+                
+                value = ''.join(value_chars)
+                
+                # If it's a formula AND not already escaped, escape it
+                if value.startswith('=') and not _contains_xml_entities(value):
+                    result.append(_escape_xml_chars(value))
+                else:
+                    result.append(value)
+                
+                # Add closing quote
+                if i < len(xlang_text):
+                    result.append(xlang_text[i])
+                    i += 1
+            else:
+                result.append(xlang_text[i])
+                i += 1
+        
+        # Handle <xv>formula</xv> text content
+        elif xlang_text[i:i+4] == '<xv>':
+            result.append('<xv>')
+            i += 4
+            
+            # Extract text content until </xv>
+            content_chars = []
+            while i < len(xlang_text) and xlang_text[i:i+5] != '</xv>':
+                content_chars.append(xlang_text[i])
+                i += 1
+            
+            content = ''.join(content_chars)
+            
+            # If it's a formula AND not already escaped, escape it
+            if content.startswith('=') and not _contains_xml_entities(content):
+                result.append(_escape_xml_chars(content))
+            else:
+                result.append(content)
+            
+            # Don't increment i here - let next iteration handle </xv>
+        
+        else:
+            result.append(xlang_text[i])
+            i += 1
     
-    # Render with empty context (no variables to substitute unless provided)
-    return template.render()
+    return ''.join(result)
 
 
-def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path, **template_vars) -> None:
+def auto_escape_formula_attributes(xlang_text: str) -> str:
+    """
+    Automatically escape XML special characters in formula attributes.
+    Uses character-by-character scanning to handle both v="..." and v='...' styles.
+    """
+    return _manual_escape(xlang_text)
+
+
+def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path) -> None:
     """
     Compile a minimal subset of exlang into an Excel .xlsx file.
     
-    Jinja2 preprocessing is ALWAYS enabled for automatic XML escaping and template support.
+    Automatic XML escaping is enabled for formulas with special characters.
     This allows natural formula syntax without manual escaping.
 
     Supported tags:
@@ -55,36 +125,26 @@ def compile_xlang_to_xlsx(xlang_text: str, output_path: str | Path, **template_v
       - xstyle
     
     Args:
-        xlang_text: EXLang XML string (with optional Jinja2 templates)
+        xlang_text: EXLang XML string
         output_path: Path to output .xlsx file
-        **template_vars: Variables to pass to Jinja2 template rendering
     
-    Example with template variables:
+    Example with complex formulas:
         xlang = '''
         <xworkbook>
           <xsheet name="Test">
-            <xcell addr="A1" v="{{ formula }}"/>
-          </xsheet>
-        </xworkbook>
-        '''
-        compile_xlang_to_xlsx(xlang, "output.xlsx", 
-                             formula='=IF(B1<100,"Low","High")')
-    
-    Example without template variables (still gets Jinja2 preprocessing):
-        xlang = '''
-        <xworkbook>
-          <xsheet name="KPI">
-            <xrow r="1"><xv>Region</xv><xv>Sales</xv></xrow>
+            <xcell addr="A1" v="150"/>
+            <xcell addr="B1" v='=IF(A1>=100,"Pass","Fail")'/>
           </xsheet>
         </xworkbook>
         '''
         compile_xlang_to_xlsx(xlang, "output.xlsx")
+    
+    Note: For formulas with quotes, use single quotes for the v attribute:
+        v='=IF(A1>=100,"Pass","Fail")'  ✓ Correct
+        v="=IF(A1>=100,"Pass","Fail")"  ✗ Invalid Python syntax
     """
-    # ALWAYS preprocess with Jinja2 for automatic XML escaping
-    if template_vars:
-        xlang_text = Environment(autoescape=True).from_string(xlang_text).render(**template_vars)
-    else:
-        xlang_text = preprocess_jinja_xlang(xlang_text)
+    # Auto-escape formulas with XML special characters
+    xlang_text = auto_escape_formula_attributes(xlang_text)
     
     root = ET.fromstring(xlang_text)
 

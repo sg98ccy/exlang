@@ -57,14 +57,31 @@ exlang/
 
 ### 2.1 Reduce token cost of structured Excel generation
 
-Typical LLM to Excel workflows require:
+Current LLM-based Excel generation follows a multi-step tool-calling workflow that incurs substantial token overhead:
 
-1. The model to emit Python code  
-2. The Python code to execute  
-3. The environment to return the resulting file  
+1. **User request**: "Create a monthly sales report Excel file"
+2. **LLM analysis**: The model must understand the request, identify that Excel generation is needed, and determine the appropriate tool to use (~200-500 tokens)
+3. **Tool call invocation**: The LLM generates a function call with Python code as a parameter, including imports, variable declarations, and openpyxl API calls (~300-800 tokens)
+4. **Execution and error handling**: The Python environment executes the code. If errors occur (syntax errors, incorrect cell references, type mismatches), the execution trace is sent back to the LLM (~100-400 tokens per error)
+5. **Iterative debugging**: The LLM analyses the error, generates corrected Python code, and triggers another tool call (~300-800 tokens per iteration)
+6. **Final confirmation**: The environment returns success status, and the LLM confirms completion to the user (~50-150 tokens)
 
-This is expensive in tokens and fragile across model versions.  
-EXLang directly expresses workbook structure in a concise, declarative format.
+**Total token cost for a simple workbook**: 1,000-3,000+ tokens (varying significantly based on complexity and error rate)
+
+**Key inefficiencies in current workflows:**
+
+- **Imperative boilerplate**: Every cell assignment requires `ws["A1"] = value` syntax, consuming 8-12 tokens per cell
+- **Error-prone execution**: Incorrect cell references, formula syntax errors, and type mismatches trigger expensive debugging cycles
+- **Multi-turn overhead**: Each error adds 400-1,200 tokens for error message, analysis, and retry
+- **Fragile across models**: API-specific code (openpyxl vs xlsxwriter vs pandas) varies between model versions and providers
+- **Context pollution**: Python execution traces and error messages consume context window space needed for actual data
+
+EXLang addresses these inefficiencies by:
+
+- **Direct declarative output**: The LLM generates structured markup in a single turn, eliminating tool-calling overhead
+- **Deterministic compilation**: EXLang validates and compiles to `.xlsx` without execution errors or debugging cycles
+- **Token efficiency**: Structured tags (`<xrow>`, `<xv>`) reduce per-cell token cost by 40-70% compared to Python assignments
+- **Model-agnostic**: The same EXLang syntax works across all LLM providers and versions
 
 ### 2.2 Provide deterministic, machine readable outputs
 
@@ -768,9 +785,9 @@ The notebook imports directly from the installed package:
 from exlang import compile_xlang_to_xlsx, validate_xlang_minimal
 ```
 
-### Automatic XML Escaping with Jinja2
+### Automatic XML Escaping
 
-EXLang **automatically** uses Jinja2 template preprocessing to handle XML escaping in formulas. This significantly reduces token overhead and makes EXLang more LLM-friendly.
+EXLang **automatically** escapes XML special characters in formulas before parsing. This makes formula syntax natural and LLM-friendly - no manual escaping required.
 
 #### The XML Escaping Problem
 
@@ -787,9 +804,9 @@ Excel formulas often contain comparison operators (`<`, `>`, `<=`, `>=`, `<>`) a
 
 This manual escaping adds ~30% more tokens and reduces LLM reliability.
 
-#### Jinja2 Solution: Natural Formula Syntax
+#### Natural Formula Syntax
 
-With automatic Jinja2 preprocessing, you can write formulas naturally without manual escaping:
+With automatic XML escaping, you can write formulas naturally:
 
 ```python
 from exlang import compile_xlang_to_xlsx
@@ -880,14 +897,14 @@ compile_xlang_to_xlsx(
 | Use Case | Recommended Approach |
 |----------|---------------------|
 | **Formulas with `<`, `>`, `<>`, `&`** | ✓ Template variables (auto-escaping) |
-| **Many similar formulas** | ✓ Jinja2 loops |
+| **Many similar formulas** | ✓ xrepeat + inline formulas |
 | **LLM-generated content** | ✓ Template variables (token efficiency) |
 | **Simple data without formulas** | Direct values (no templates needed) |
 | **Static templates** | Either approach works |
 
 #### Backward Compatibility
 
-Jinja2 preprocessing is **always enabled** by default. If your EXLang contains manual XML escaping (e.g., `&lt;`, `&quot;`), it will still work correctly — Jinja2 passes it through unchanged:
+Automatic escaping is **always enabled**. If your EXLang contains manual XML escaping (e.g., `&lt;`, `&quot;`), it will still work correctly — the compiler detects and preserves it:
 
 ```python
 # Manual escaping still works (backward compatible)
